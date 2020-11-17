@@ -1,0 +1,23 @@
+from Bio import SeqIO
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
+import shutil
+import argparse
+par = argparse.ArgumentParser()
+par.add_argument('-cds', '--cds')
+par.add_argument('-mt', '--mafft')
+arg = par.parse_args()
+cdsname=[]
+for i in SeqIO.parse(arg.cds,'fasta'):
+    a=str(i.id).split('|')
+    b=a[1]+a[-1]
+    cdsname.append(b)
+newfile=[]
+for name in cdsname:
+    for r in SeqIO.parse(arg.mafft,'fasta'):
+        c = str(r.id).split('|')
+        d = c[1] + c[-1]
+        if name == d :
+            record=SeqRecord(r.seq,id=r.id,description='')
+            newfile.append(record)
+SeqIO.write(newfile,'/users/yanrui/desktop/修改.fasta','fasta')

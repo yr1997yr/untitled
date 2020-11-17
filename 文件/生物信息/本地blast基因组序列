@@ -1,0 +1,63 @@
+#1 把下载的序列保存在gene文件夹中，建立本地蛋白质数据可，采用本地balst，将菌全蛋白序列与数据库比对，并且将blast结果保存在result文件夹中
+#分析balst后txt文档.py 用pandas库解析blast结果，获取目标基因的起始位点与终止位点。
+#3 读取物种全基因组序列，采用biopython切片，获得目标基因相似的基因片段
+#4保存成fasta文件
+#4 构建进化树
+import  pandas as  pd
+import os
+from Bio import SeqIO
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
+target_db='/home/yufq/yanrui/进化树/target_db/text'#数据库所在路径
+local_gene='/home/yufq/yanrui/进化树/gene'#下载的蛋白序列所在路径
+#遍历local_gene下的文件
+fastafile=os.listdir(local_gene)#遍历所下载的基因的文件
+fastafile.remove('.DS_Store')
+result_file='/home/yufq/yanrui/进化树/result/'#blast结果保存的路径
+k=0
+target_protein_seq=[]
+num_of_protseq=[]
+for name in fastafile:#name蛋白质序列文件名字
+    name_fortxt=result_file + name.split('_')[0] +'.txt'#本地blast out文件路径
+    name1=local_gene+'/'+name#下载的蛋白序列的路径
+    print(name_fortxt)
+    try:
+        os.system(f"blastp -query {name1} -db {target_db} -out {name_fortxt} -evalue 1e-10 -outfmt '6 qseqid qstart qend  sacc score ' ")
+    except:
+        continue
+    print('')
+    #用pandas清洗数据
+    size=os.path.getsize(name_fortxt)
+    if size == 0:
+        print('无目标条带')
+        continue
+    else:
+        df=pd.read_table(name_fortxt,names=['条带编号','起始位点','终止位点','酶编号','得分'])
+        score=df.groupby(['酶编号'],as_index=False)['得分'].max().iloc[0,1]
+        data_cleaned=df.loc[df['得分'] == score, :]#选取同源性最高的物种
+        count=df['酶编号'].value_counts()
+        single_sp=[]
+        single_sp.append(name.split('_')[0])
+        for index in count.index:
+            single_sp.append(index)
+            for num in count:
+                single_sp.append(num)
+        num_of_protseq.append(single_sp)
+        target_mes=[]
+        target_mes = data_cleaned.values.tolist()
+        for num in target_mes:
+            for re in SeqIO.parse(name1,'fasta'):
+                if str(re.id) == num[0]:
+                    record = SeqRecord(re.seq[num[1] - 1:num[2] + 1], id=f'{num[0]}', description=f'{num[3]}')
+                    target_protein_seq.append(record)
+    sep_over300=[]#选取序列长度大于300的序列
+    path='/home/yufq/yanrui/进化树/result/所有结果.fasta'
+    SeqIO.write(target_protein_seq, path, "fasta")
+    record= SeqIO.parse(path,'fasta')
+    for seq in record:
+        if len(seq)>300:
+            sep_over300.append(seq)
+    SeqIO.write(sep_over300,'/home/yufq/yanrui/进化树/result/seq_over300.fasta','fasta')
+
+
+

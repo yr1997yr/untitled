@@ -1,0 +1,28 @@
+import  os
+import pandas as pd
+file_path='/users/yanrui/desktop/结果/result全体 拟南芥'
+
+os.chdir(file_path)
+file_list=os.listdir(file_path)
+all_mes=[]
+for f in file_list:
+    size = os.path.getsize(f)
+    if size ==0:
+        continue
+    try:
+        df=pd.read_table(f,names=['条带编号', '起始位点', '终止位点', '酶编号', '得分'])
+    except:
+        continue
+    count = df['酶编号'].value_counts()
+    single_mes=[]
+    single_mes.append(f.split('.')[0])
+    if len(count.index)==2:
+        for num in count:
+            single_mes.append(num)
+    elif len(count.index)==1:
+        single_mes.append(count.index[0])
+        single_mes.append(count[0])
+
+    all_mes.append(single_mes)
+num_of_protseq=pd.DataFrame(all_mes,columns=['物种名称','AEE52072.1','PKC15531.1'])
+num_of_protseq.to_csv('num_of_protseq.csv')

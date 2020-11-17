@@ -1,0 +1,146 @@
+##1 把下载的序列保存在gene文件夹中，建立本地蛋白质数据可，采用本地balst，将菌全蛋白序列与数据库比对，并且将blast结果保存在result文件夹中
+#分析balst后txt文档.py 用pandas库解析blast结果，获取目标基因的起始位点与终止位点。
+#3 读取物种全基因组序列，采用biopython切片，获得目标基因相似的基因片段，保存。
+#4 构建进化树
+import  pandas as  pd
+import os
+import re
+import threading
+from Bio import SeqIO
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
+import shutil
+import argparse
+
+def Local_blast(name1,target_db,name_fortxt):
+        os.system(f"blastp -query {name1} -db {target_db} -out {name_fortxt} -evalue 1e-6 -outfmt '6 qseqid qstart qend  sacc score ' -num_threads 5 ")
+        print('%s,本地blast已经完成'%name1)
+
+def Clean_data(name_fortxt,name,num_of_protseq,target_mes_for_hmmer):
+    df = pd.read_table(name_fortxt, names=['条带编号', '起始位点', '终止位点', '酶编号', '得分'])
+    df = df.drop_duplicates(['条带编号'])
+    # df1=df.drop_duplicates(subset=['条带编号'],keep=False)
+    # score = df.groupby(['酶编号'], as_index=False)['得分'].max().iloc[0, 1]
+    # df= df.loc[df['得分'] == score, :]
+    # print('结果内无重复序列')
+    target_mes = df.values.tolist()#把数组变成列表，传给下一个函数做分析
+    target_mes_for_hmmer.append(target_mes)
+    count = df['酶编号'].value_counts()#统计数据,返回酶编号为索引和条数的serise
+    single_sp = []
+    single_sp.append(name.split('_')[0])#添加物种名字
+    if len(count.index)==2:
+        for num in count:
+            single_sp.append(num)
+    elif len(count.index)==1:#如果只有一条序列
+        single_sp.append(count.index[0])#添加酶编号
+        single_sp.append(count[0])#添加目标条带数
+    num_of_protseq.append(single_sp)
+    os.remove(name_fortxt)
+    return target_mes
+
+def Biopython_cut(target_mes,target_protein_seq,name1):
+    for num in target_mes:
+        for re in SeqIO.parse(name1, 'fasta'):
+            if str(re.id) == num[0]:
+                id=re.id.replace('%','').replace('#','').replace('jgi|')
+                record = SeqRecord(re.seq, id=id, description='')
+                target_protein_seq.append(record)
+
+
+def hmmer_selct(target_mes_for_hmmer,all_seq_path,txt_path):
+    os.system(f'hmmsearch /home/yr/yanrui/进化树/target_db/sjk.hmm {all_seq_path} > {txt_path}')#调用hmmer软件
+    with open(txt_path) as file:
+        wd = file.read()
+        data = re.findall(r'jgi.*? ', wd)
+        data1 = []
+        for i in data:
+            data1.append(i.strip())
+        data1=list(set(data1))
+        #统计酶数量
+        num_of_enzyme=pd.Series([i.split('|')[1] for i in data1]).value_counts()
+        num_of_enzyme.to_csv('/home/yr/yanrui/进化树/result/hmmer_select.csv')
+        p=0
+        for i in range(len(target_mes_for_hmmer)):
+            p += len(target_mes_for_hmmer[i])
+        print('hmmer筛选前有%s条序列'%p)
+        hmmer_selected=[]
+        for i in range(len(target_mes_for_hmmer)):
+            for a in range(len(target_mes_for_hmmer[i])):
+                yy=bool(str(target_mes_for_hmmer[i][a][0]) in data1 )
+                if yy == True:
+                    hmmer_selected.append(target_mes_for_hmmer[i][a])
+                if yy ==False:
+                    continue
+
+        print('进行hmmer筛选后还有%s条序列'%len(hmmer_selected) )
+        print(hmmer_selected)
+        return hmmer_selected
+
+def select_by_name():
+    pass
+
+def raxml():
+    os.system('raxmlHPC -s /home/yr/yanrui/进化树/result/raxml/trimal.phy -n jianwei.treefile -m PROTGAMMAAUTO -p 12345 -N 1000 -x 12345 -T 20')
+    #raxmlHPC -s ITS.phy -m GTRGAMMA -p 12345 -N 1000 -x 12345 -T 40 -n jianwei.treefile
+
+def iqtree():
+    os.system('iqtree -s /home/yr/yanrui/进化树/result/iqtree/trimal.phy -cmax 20 -alrt 1000 -B 1000 -T AUTO')
+
+
+
+target_db='/home/yr/yanrui/进化树/target_db/text'#数据库所在路径
+# local_gene='/users/yanrui/desktop/进化树/gene'#下载的蛋白序列所在路径
+local_gene='/home/yr/yanrui/进化树/gene'#下载的蛋白序列所在路径
+#遍历local_gene下的文件
+fastafile=os.listdir(local_gene)#遍历所下载的基因的文件
+# fastafile.remove('.DS_Store')
+num_of_fastafile=len(fastafile)
+result_file='/home/yr/yanrui/进化树/result/'#blast结果保存的路径
+target_protein_seq = []
+num_of_protseq=[]#用于统计每个物种blast出来的目标蛋白条带的数量
+txt_path='/home/yr/yanrui/进化树/result/hmmer_result.txt'#hmmer软件生成txt文件路径
+target_mes_for_hmmer=[]#hmmer使用
+all_seq_path=result_file+'all_seq_path.fasta'
+hmmer_selected_path=result_file+'hmmer_seleted_path.fasta'
+if __name__ == "__main__":
+    for name in fastafile:
+        print('还剩%s条序列尚未分析'%num_of_fastafile)
+        num_of_fastafile = num_of_fastafile - 1
+        name_fortxt = result_file + name.split('_')[0] + '.txt'  # 本地blast out文件路径
+        name1 = local_gene + '/' + name  # 下载的蛋白序列的路径
+        try:
+            Local_blast(name1,target_db,name_fortxt)
+        except:
+            continue
+        size=os.path.getsize(name_fortxt)
+        if size == 0:
+            print('无目标条带')
+            continue
+        else:
+            try:
+                Biopython_cut(Clean_data(name_fortxt,name,num_of_protseq,target_mes_for_hmmer),target_protein_seq,name1)
+            except:
+                print('%s物种已经被从gene文件夹中移除'%name.split('_')[0])
+                os.system(f'mv {name1} /home/yr/yanrui/进化树/被移除')
+    num_of_protseq=pd.DataFrame(num_of_protseq)#写入csv文件
+    num_of_protseq_path=result_file+'num_of_protseq.csv'
+    num_of_protseq.to_csv(num_of_protseq_path)
+    SeqIO.write(target_protein_seq, all_seq_path, "fasta")
+    print('所有序列已经保存为%s文件' % all_seq_path)
+    target_protein_seq=[]
+    Biopython_cut(hmmer_selct(target_mes_for_hmmer, all_seq_path, txt_path), target_protein_seq, all_seq_path)
+    SeqIO.write(target_protein_seq, hmmer_selected_path, "fasta")
+    #将结果进行多序列比对
+    os.system(f"linsi {hmmer_selected_path} > '/home/yr/yanrui/进化树/result/mafft.fasta'")
+    print('多序列比对完成')
+    #使用trimal软件对多序列比对进行筛选：
+    # os.system(f"trimal -in '/home/yr/yanrui/进化树/result/mafft.fasta' -out '/home/yr/yanrui/进化树/result/trimal.phy' -gt 0.9 -cons 60 -phylip")
+    # print('trimal筛选完成')
+    print('即将构建进化树')
+    shutil.copyfile('/home/yr/yanrui/进化树/result/trimal.phy','/home/yr/yanrui/进化树/result/raxml/trimal.phy')
+    shutil.copyfile('/home/yr/yanrui/进化树/result/trimal.phy','/home/yr/yanrui/进化树/result/iqtree/trimal.phy')
+
+    #分别调用raxml 和 iqtree 跑进化树
+    # raxml()
+    # print('已完成进化树构建')
+

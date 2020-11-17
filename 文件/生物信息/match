@@ -1,0 +1,37 @@
+import  pandas as  pd
+import os
+target_db='/users/yanrui/desktop/进化树/target_db/text'#数据库所在路径
+target_db1='/users/yanrui/desktop/进化树/target_db/拟南芥2'#数据库
+# local_gene='/users/yanrui/desktop/进化树/gene'#下载的蛋白序列所在路径
+local_gene='/users/yanrui/desktop/进化树/分类/共生'#下载的蛋白序列所在路径
+#遍历local_gene下的文件
+fastafile=os.listdir(local_gene)#遍历所下载的基因的文件
+fastafile.remove('.DS_Store')
+num_of_fastafile=len(fastafile)
+result_file='/users/yanrui/desktop/进化树/result/'#blast结果保存的路径
+for name in fastafile:#name蛋白质序列文件名字
+    name_fortxt=result_file + name.split('_')[0] +'.txt'#本地blast out文件路径
+    name1=local_gene+'/'+name#下载的蛋白序列的路径
+    print(name_fortxt)
+    try:
+        os.system(f"blastp -query {name1} -db {target_db} -out {name_fortxt} -evalue 1e-10 -outfmt '6 qseqid qstart qend  sacc score ' ")
+    except:
+        continue
+    size = os.path.getsize(name_fortxt)
+    if size == 0:
+        print('无目标条带')
+        continue
+    else:
+        df = pd.read_table(name_fortxt, names=['条带编号', '起始位点', '终止位点', '酶编号', '得分'])
+        jiaomu=df[['起始位点','终止位点']].values.tolist()
+        os.system(f"blastp -query {name1} -db {target_db1} -out {name_fortxt} -evalue 1e-10 -outfmt '6 qseqid qstart qend  sacc score ' ")
+        df = pd.read_table(name_fortxt, names=['条带编号', '起始位点', '终止位点', '酶编号', '得分'])
+        nnj=df[['起始位点','终止位点']].values.tolist()
+        if len(jiaomu) > len(nnj):
+            print(name.split('_')[0])
+            for i in nnj:
+                print(bool(i in jiaomu))
+        else:
+            print(name.split('_')[0])
+            for i in jiaomu:
+                print(bool(i in nnj))

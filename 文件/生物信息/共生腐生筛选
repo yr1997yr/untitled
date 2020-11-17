@@ -1,0 +1,29 @@
+import pandas as pd
+from Bio import SeqIO
+from Bio.SeqRecord import SeqRecord
+import os
+file_list=os.listdir('/users/yanrui/desktop/nature/分类')
+
+for file in file_list:
+    count=0
+    p=[]
+    try:
+        data=[i.split(' ')[0][0:3]+i.split(' ')[1][0:2]for i in pd.read_table('/users/yanrui/desktop/nature/分类/'+str(file),sep=',')]
+    except:
+        print(file)
+        continue
+    for name in data:
+        for seq in SeqIO.parse('/users/yanrui/desktop/nature/result/酵母.fasta','fasta'):
+            if str(name) in str(seq.id):
+                p.append(name)
+                count+=1
+    if len(p) != 0:
+        q=pd.Series(p).value_counts()
+    else:
+        q=None
+    print(file.split('.')[0],count)
+    print(q)
+
+
+
+

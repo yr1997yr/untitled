@@ -1,0 +1,61 @@
+import  pandas as  pd , os ,re, argparse
+from Bio import SeqIO
+from Bio.SeqRecord import SeqRecord
+#1 调用本地blast筛选序列
+#分析balst后txt文档.py 找到目标序列
+#3 hmmer复筛，找到两者筛选相同序列
+#4 biopython切片
+class select_gene():
+    def __init__(self):
+        par = argparse.ArgumentParser()
+        par.add_argument('-query', '--query')
+        par.add_argument('-bldb', '--blastdb')
+        par.add_argument('-hmdb', '--hmmerdb')
+        par.add_argument('-blaout', '--blastout')
+        par.add_argument('-out', '--fileout')
+        arg = par.parse_args()
+        self.target_db = '/home/yr/yanrui/nature/target_db/' + str(arg.blastdb)  # 数据库所在路径
+        #self.local_gene = '/home/yr/yanrui/nature/进化树本地/prot_text'  # 下载的蛋白序列所在路径
+        #self.local_CDS = '/home/yr/yanrui/nature/进化树本地/CDS'  # 下载的cds序列所在文件夹
+        self.result_file = '/home/yr/yanrui/nature/进化树本地/result/'
+        self.query=str(arg.query)
+        self.target_prot=[]
+        self.hmmdb='/home/yr/yanrui/nature/target_db/' + str(arg.hmmerdb) +'.hmm'
+        self.outname='/home/yr/yanrui/nature/result/'+str(arg.fileout)
+        self.name_fortxt='/home/yr/yanrui/nature/result/'+str(arg.blastout)
+    def local_balst(self):
+        try:
+            os.system(f"blastp -query {self.query} -db {self.target_db} -out {self.name_fortxt} -evalue 1e-6 -outfmt '6 qseqid qstart qend  sacc score ' -num_threads 10 ")
+        except:
+            print('blast 出错')
+    def clean_data(self):
+        df = pd.read_table(self.name_fortxt, names=['条带编号', '起始位点', '终止位点', '酶编号', '得分'])
+        df.drop_duplicates(['条带编号'])
+        self.seqname=[str(i )for i in df['条带编号']]
+    def Hmmer_selct(self):
+        txt_path=self.result_file+'hmm_result.txt'
+        os.system(f'hmmsearch {self.hmmdb} {self.query} > {txt_path}')
+        with open(txt_path) as file:
+            wd = file.read()
+            a= re.findall(r'jgi.*? ', wd)
+            data=list(set([i.strip() for i in a]))
+            self.sec_selcted_seq=[i for i in data if i in self.seqname]
+            print('blast，hmmer筛选后有%s条目标序列序列'%len(self.sec_selcted_seq))
+    def get_target_gene(self):
+        for i in SeqIO.parse(self.query,'fasta'):
+            if str(i.id) in self.sec_selcted_seq:
+                record=SeqRecord(i.seq[0:-1], id=str(i.id).replace('%', '').replace('#', ''), description='')
+                self.target_prot.append(record)
+        SeqIO.write(self.target_prot,self.outname,'fasta')
+        print('目标序列已保存至',self.outname)
+    ####self.local_blast()
+    
+def main():
+    yr=select_gene()
+    yr.local_balst()
+    yr.clean_data()
+    yr.Hmmer_selct()
+    yr.get_target_gene()
+
+if __name__ == "__main__":
+    main()

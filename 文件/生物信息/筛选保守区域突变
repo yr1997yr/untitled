@@ -1,0 +1,16 @@
+#以酵母酸性磷酸酶作为例子
+from Bio import SeqIO
+from Bio.SeqRecord import SeqRecord
+nomal=[]
+tb=[]
+tblist=[]
+for i in SeqIO.parse('11.fas','fasta'):
+    a=str(i.seq)
+    if a[863] == 'R' and a[864] == 'H' and a[867]=='R' and a[1017]=='R':
+        re=SeqRecord(i.seq,id=i.id,description='')
+        nomal.append(re)
+    else:
+        er=SeqRecord(i.seq,id=i.id,description='')
+        tb.append(er)
+        b=[i.id,a[863],a[863],a[867],a[1017]]
+        tblist.append(b)

@@ -1,0 +1,29 @@
+from Bio import SeqIO
+import re
+import random
+import pandas as pd
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
+data=pd.read_csv('/users/yanrui/desktop/yy.txt')
+a=data.values.tolist()
+b=[]
+for i in range(len(a)):
+    b.append(a[i][0].strip())
+record=SeqIO.parse('/users/yanrui/desktop/all_seq_path.fasta','fasta')
+no_select=[]
+selected_list=[]
+
+for seq in record:
+    bb=[]
+    bb.append(str(seq.seq))
+    bb.append(str(seq.id))
+    no_select.append(bb)
+
+for i in range(len(no_select)):
+    a=bool (str(no_select[i][1]) in b)
+    print(a)
+    if a == True:
+        c = SeqRecord(Seq(no_select[i][0]), id=f'{no_select[i][1]}')
+        selected_list.append(c)
+print(len(selected_list))
+SeqIO.write(selected_list,'/users/yanrui/desktop/保留.fasta','fasta')

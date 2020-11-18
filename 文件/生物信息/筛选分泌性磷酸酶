@@ -2,8 +2,6 @@ import os, argparse
 import pandas as pd
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
-
-
 class select():
     def __init__(self):
         par = argparse.ArgumentParser()

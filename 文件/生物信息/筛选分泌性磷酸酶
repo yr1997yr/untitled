@@ -1,4 +1,84 @@
-#读取四个文档提取信息，读取目标序列文档，获取序列名，注意序列名称
-#四个列表取交集取交集，获取列表信息，
-#按照分类单位区分该酶
+import os, argparse
+import pandas as pd
+from Bio import SeqIO
+from Bio.SeqRecord import SeqRecord
 
+
+class select():
+    def __init__(self):
+        par = argparse.ArgumentParser()
+        par.add_argument('-list', '--list')
+        par.add_argument('-query', '--query')
+        # par.add_argument('-out','--out')
+        arg = par.parse_args()
+        self.list = arg.list
+        self.name = [i for i in os.listdir(arg.list) if i.endswith('.txt')]
+        self.query = arg.query
+
+    def get_information(self):  # 注意序列名称的格式统一，'|' 换成 '——'
+        for name in self.name:
+            if 'SingalP' in name:
+                try:
+                    sp = pd.read_table(self.list + '/' + name, names=['m', 'y', 's1', 's2', 'p'])
+                    self.Singalp = [i for i in sp.loc[sp['y'] != 'OTHER', :]['m']]
+                except:
+                    print('读取%s文件出错' % name)
+            elif 'TargetP' in name:
+                try:
+                    tp = pd.read_table(self.list + '/' + name, names=['1', '2', '3', '4', '5', '6'])
+                    self.tar = [i for i in tp.loc[tp['2'] == 'SP', :]['1']]
+                except:
+                    print('读取%s文件出错' % name)
+
+            elif 'TMHMM' in name:
+                try:
+                    tm = pd.read_table(self.list + '/' + name, names=['1', '2', '3', '4', '5', '6'])
+                    self.TMHMM = [i for i in tm.loc[tm['5'] == 'PredHel=0', :]['1']]
+                except:
+                    print('读取%s文件出错' % name)
+            elif 'wolf' in name:
+                self.wolf = []
+                try:
+                    with open(self.list + '/' + name, 'r') as f:
+                        df = f.read()
+                        da = df.replace('jgi', '\n').replace(' details', ',')
+                    with open(self.list + '/' + '1.txt', 'w') as p:
+                        p.write(da)
+                    with open(self.list + '/' + '1.txt', 'r') as d:
+                        for i in d.readlines():
+                            try:
+                                if 'extr' in i.split(',')[1]:
+                                    self.wolf.append('jgi' + i.split(',')[0])
+                            except:
+                                continue
+                except:
+                    print('读取%s文件出错' % name)
+        self.seq_name = [str(i.id) for i in SeqIO.parse(self.query, 'fasta')]
+
+    def change_fomate(self):
+        self.Singalp = list(map(lambda x: x.replace('|', '_'), self.Singalp))
+        self.tar = list(map(lambda x: x.replace('|', '_'), self.tar))
+        self.TMHMM = list(map(lambda x: x.replace('|', '_'), self.TMHMM))
+        self.wolf = list(map(lambda x: x.replace('|', '_'), self.wolf))
+        self.seq_name = list(map(lambda x: x.replace('|', '_'), self.seq_name))
+
+    def select_seq(self):
+        self.get_information()
+        self.change_fomate()
+        sz = list(set(self.Singalp) & set(self.TMHMM) & set(self.wolf) & set(self.seq_name) & set(self.tar))
+        record = []
+        for i in SeqIO.parse(self.query, 'fasta'):
+            if str(i.id).replace('|', '_') in sz:
+                re = SeqRecord(i.seq, id=i.id, description='')
+                record.append(re)
+        SeqIO.write(record, self.list + '/' + '分泌性磷酸酶.fasta', 'fasta')
+        print('筛选前有%d条序列，筛选后有%d条分泌性磷酸酶序列' % (len(self.seq_name), len(record)))
+
+
+def main():
+    yr = select()
+    yr.select_seq()
+
+
+if __name__ == "__main__":
+    main()

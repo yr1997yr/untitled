@@ -12,7 +12,7 @@ def Main():
     pass
 
 def Local_blast(name1,target_db,name_fortxt):
-        os.system(f"blastp -query {name1} -db {target_db} -out {name_fortxt} -evalue 1e-6 -outfmt '6 qseqid qstart qend  sacc score ' -num_threads 5 ")
+        os.system(f"blastp -query {name1} -db {target_db} -out {name_fortxt} -evalue 1e-6 -outfmt '6 qseqid qstart qend  sacc score ' -num_threads 10 ")
         print('%s,本地blast已经完成'%name1)
 
 def Clean_data(name_fortxt,name,num_of_protseq,target_mes_for_hmmer):

@@ -2,18 +2,18 @@ import pandas as pd
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
 import os
-file_list=os.listdir('/users/yanrui/desktop/nature/分类')
+file_list=os.listdir('/users/yanrui/desktop/nature/营养方式分类')
 
 for file in file_list:
     count=0
     p=[]
     try:
-        data=[i.split(' ')[0][0:3]+i.split(' ')[1][0:2]for i in pd.read_table('/users/yanrui/desktop/nature/分类/'+str(file),sep=',')]
+        data=[i.split(' ')[0][0:3]+i.split(' ')[1][0:2]for i in pd.read_table('/users/yanrui/desktop/nature/营养方式分类/'+str(file),sep=',')]
     except:
         print(file)
         continue
     for name in data:
-        for seq in SeqIO.parse('/users/yanrui/desktop/nature/result/酵母.fasta','fasta'):
+        for seq in SeqIO.parse('/users/yanrui/desktop/nature/result/酵母/分泌性磷酸酶.fasta','fasta'):
             if str(name) in str(seq.id):
                 p.append(name)
                 count+=1

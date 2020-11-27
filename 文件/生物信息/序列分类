@@ -1,0 +1,75 @@
+#先在序列中按分类单元筛选
+#然后区分营养类型
+import os ,argparse,pandas as pd
+from Bio import SeqIO
+from Bio.SeqRecord import SeqRecord
+class selct():
+    def __init__(self):
+        par = argparse.ArgumentParser()
+        par.add_argument('-q', '--query')
+        par.add_argument('-o','--out')
+        arg = par.parse_args()
+        self.query=arg.query
+        self.out=arg.out
+    def yr(self,fasta):
+        file_list = os.listdir('/users/yanrui/desktop/nature/营养方式分类')
+        for file in file_list:
+            count = 0
+            p = []
+            try:
+                self.data = [i.split(' ')[0][0:3] + i.split(' ')[1][0:2] for i in pd.read_table('/users/yanrui/desktop/nature/营养方式分类/' + str(file), sep=',')]
+            except:
+                print(file)
+                continue
+            for name in self.data:
+                for seq in SeqIO.parse(self.out+'/'+fasta, 'fasta'):
+                    if str(name) in str(seq.id):
+                        p.append(name)
+                        count += 1
+            if len(p) != 0:
+                q = pd.Series(p).value_counts()
+            else:
+                q = None
+            print(file.split('.')[0], count)
+            print(q)
+
+    def yy(self):
+        names=os.listdir('/users/yanrui/desktop/nature/进化分类')
+        names.remove('.DS_Store')
+        di={}
+        for name in names:
+            try:
+                di[f'{name}'] = [i.split('_')[0] for i in os.listdir(f'/users/yanrui/desktop/nature/进化分类/{name}') if i.endswith('.fasta')]
+            except:
+                print('%s筛选出错'%name)
+                continue
+        for i in di:
+            record=[]
+            for seq in SeqIO.parse(self.query,'fasta'):
+                if str(seq.id).split('|')[1] in di[i]:
+                    t=SeqRecord(seq.seq,id=seq.id,description='')
+                    record.append(t)
+            SeqIO.write(record , self.out+'/'+str(i)+'.fasta', 'fasta' )
+
+    def main(self):
+        self.yy()
+        for file in os.listdir(self.out):
+            if str(file).endswith('fasta'):
+                print(str(file).replace('.fatsa',''))
+                self.yr(file)
+            else:
+                continue
+if __name__ == "__main__":
+    g=selct()
+    g.main()
+
+
+
+
+
+
+
+
+
+
+

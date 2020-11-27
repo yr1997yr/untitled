@@ -1,0 +1,122 @@
+from Bio import SeqIO
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
+import pandas as pd
+import os
+import re, argparse
+# 酸性磷酸酶蛋白序列.fas
+class Select():
+    def __init__(self):
+        self.hmmer_txt = '/users/yanrui/desktop/nature/result'
+        par = argparse.ArgumentParser()
+        par.add_argument('-db', '--hmmerdb')#hmmer数据库
+        par.add_argument('-f', '--file')#blast筛选txt结果
+        par.add_argument('-list', '--list')#分泌性筛选txt结果
+        arg = par.parse_args()
+        self.dbname=arg.hmmerdb
+        self.hmmdb = '/users/yanrui/desktop/nature/target_db/' + str(arg.hmmerdb) + '.hmm'
+        self.file = arg.file
+        self.query = '/users/yanrui/desktop/nature/全体.fasta'
+        #筛选分泌性磷酸酶
+        self.list = arg.list
+        self.name = [i for i in os.listdir(arg.list) if i.endswith('.txt')]
+    #blast hmmer结果分析 只需调用最后一个类
+    def get_blast(self):
+            txt = pd.read_table(self.file, names=['条带编号', '起始位点', '终止位点', '酶编号', '得分'])
+            txt.drop_duplicates(['条带编号'])
+            self.seqname = [str(i) for i in txt['条带编号']]
+            print('blast筛选出%d条序列'%len(self.seqname))
+    def hmmer(self):
+        self.get_blast()
+        txt_path = f'/users/yanrui/desktop/nature/result/txt文档/{self.dbname}.txt'
+        os.system(f'hmmsearch -E 0.00001 --domE 0.00001 {self.hmmdb} {self.query} > {txt_path}')
+        with open(txt_path) as file:
+            wd = file.read()
+            a = re.findall(r'jgi.*? ', wd)
+            data = list(set([i.strip() for i in a]))
+            self.sec_selcted_seq = [i for i in data if i in self.seqname]
+            print('blast，hmmer筛选后有%s条目标序列序列' % len(self.sec_selcted_seq))
+    def get_target_gene(self):
+        self.hmmer()
+        self.target_prot = []
+        for i in SeqIO.parse(self.query, 'fasta'):
+            if str(i.id) in self.sec_selcted_seq:
+                record = SeqRecord(i.seq[0:-1], id=str(i.id).replace('%', '').replace('#', ''), description='')
+                self.target_prot.append(record)
+    #筛选分泌性酸性磷酸酶 只需调用最后一个类
+    def get_information(self):  # 注意序列名称的格式统一，'|' 换成 '——'
+        for name in self.name:
+            if 'SingalP' in name:
+                try:
+                    sp = pd.read_table(self.list + '/' + name, names=['m', 'y', 's1', 's2', 'p'])
+                    self.Singalp = [i for i in sp.loc[sp['y'] != 'OTHER', :]['m']]
+                except:
+                    print('读取%s文件出错' % name)
+            elif 'TargetP' in name:
+                try:
+                    tp = pd.read_table(self.list + '/' + name, names=['1', '2', '3', '4', '5', '6'])
+                    self.tar = [i for i in tp.loc[tp['2'] == 'SP', :]['1']]
+                except:
+                    print('读取%s文件出错' % name)
+
+            elif 'TMHMM' in name:
+                try:
+                    tm = pd.read_table(self.list + '/' + name, names=['1', '2', '3', '4', '5', '6'])
+                    self.TMHMM = [i for i in tm.loc[tm['5'] == 'PredHel=0', :]['1']]
+                except:
+                    print('读取%s文件出错' % name)
+            elif 'wolf' in name:
+                self.wolf = []
+                try:
+                    with open(self.list + '/' + name, 'r') as f:
+                        df = f.read()
+                        da = df.replace('jgi', '\n').replace(' details', ',')
+                    with open(self.list + '/' + '1.txt', 'w') as p:
+                        p.write(da)
+                    with open(self.list + '/' + '1.txt', 'r') as d:
+                        for i in d.readlines():
+                            try:
+                                if 'extr' in i.split(',')[1]:
+                                    self.wolf.append('jgi' + i.split(',')[0])
+                            except:
+                                continue
+                except:
+                    print('读取%s文件出错' % name)
+        self.seq_name = [str(i.id) for i in self.target_prot]
+    def change_fomate(self):
+        self.Singalp = list(map(lambda x: x.replace('|', '_'), self.Singalp))
+        self.tar = list(map(lambda x: x.replace('|', '_'), self.tar))
+        self.TMHMM = list(map(lambda x: x.replace('|', '_'), self.TMHMM))
+        self.wolf = list(map(lambda x: x.replace('|', '_'), self.wolf))
+        self.seq_name = list(map(lambda x: x.replace('|', '_'), self.seq_name))
+    def select_seq(self):
+        self.get_information()
+        self.change_fomate()
+        sz=list( set(self.Singalp)&set(self.TMHMM)&set(self.wolf)&set(self.seq_name)&set(self.tar) )
+        self.record=[]
+        for i in SeqIO.parse(self.query,'fasta'):
+            if str(i.id).replace('|','_') in sz:
+                re=SeqRecord(i.seq,id=i.id,description='')
+                self.record.append(re)
+        SeqIO.write(self.record,'分泌性磷酸酶_prot.fasta','fasta')
+        print('筛选前有%d条序列，筛选后有%d条分泌性磷酸酶序列'%( len(self.seq_name),len(self.record) ))
+    #找到对因的cds序列并且改名字
+    def find_cds(self):
+        re=[]
+        a=[i.id for i in self.record]
+        cds='/users/yanrui/desktop/nature/全体cds.fasta'
+        for i in SeqIO.parse(cds, 'fasta'):
+            if str(i.id) in a:
+                jgi = str(i.id).split('|')[0]
+                name = str(i.id).split('|')[-1]
+                r = SeqRecord(i.seq, str(i.id).replace(jgi, '').replace(name, '')[1:-1], description='')
+                re.append(r)
+        SeqIO.write(re, '分泌性磷酸酶_cds', 'fasta')
+def main():
+    yr=Select()
+    yr.get_target_gene()
+    yr.select_seq()
+    yr.find_cds()
+if __name__ == "__main__":
+
+    main()

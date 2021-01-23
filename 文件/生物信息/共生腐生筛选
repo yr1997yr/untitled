@@ -2,27 +2,34 @@ import pandas as pd
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
 import os
-file_list=os.listdir('/users/yanrui/desktop/nature/营养方式分类')
+file_list=os.listdir('/users/yanrui/desktop/nature/营养方式分类英文')
 
 for file in file_list:
     count=0
     p=[]
     try:
-        data=[i.split(' ')[0][0:3]+i.split(' ')[1][0:2]for i in pd.read_table('/users/yanrui/desktop/nature/营养方式分类/'+str(file),sep=',')]
+        data=[i.split(' ')[0][0:3]+i.split(' ')[1][0:2]for i in pd.read_table('/users/yanrui/desktop/nature/营养方式分类英文/'+str(file),sep=',')]
     except:
         print(file)
         continue
     for name in data:
-        for seq in SeqIO.parse('/users/yanrui/desktop/nature/result/酵母/分泌性磷酸酶.fasta','fasta'):
+        for seq in SeqIO.parse('/users/yanrui/desktop/2.fas','fasta'):
             if str(name) in str(seq.id):
-                p.append(name)
-                count+=1
-    if len(p) != 0:
-        q=pd.Series(p).value_counts()
-    else:
-        q=None
-    print(file.split('.')[0],count)
-    print(q)
+                record=SeqRecord(seq.seq,id=str(file).replace('.txt',''),description='')
+                p.append(record)
+                SeqIO.write(p,'/users/yanrui/desktop/酵母/'+str(file).replace('.txt','')+'.fasta','fasta')
+
+
+
+
+
+
+    # if len(p) != 0:
+    #     q=pd.Series(p).value_counts()
+    # else:
+    #     q=None
+    # print(file.split('.')[0],count)
+    # print(q)
 
 
 
